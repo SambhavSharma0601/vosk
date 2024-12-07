@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio to Text</title>
+</head>
+<body>
+<h1>Audio to Text Converter</h1>
+<button id="startBtn">Start Recording</button>
+<button id="stopBtn" disabled>Stop Recording</button>
+<audio id="audioPlayback" controls style="display: none;"></audio>
+<div id="result"></div>
+
+<script>
+  let mediaRecorder;
+  let audioChunks = [];
+  const audioPlayback = document.getElementById('audioPlayback');
+
+  document.getElementById('startBtn').onclick = startRecording;
+  document.getElementById('stopBtn').onclick = stopRecording;
+
+  function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+              mediaRecorder = new MediaRecorder(stream);
+              mediaRecorder.start();
+
+              mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+              };
+
+              mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioURL = URL.createObjectURL(audioBlob);
+                audioPlayback.src = audioURL;
+                audioPlayback.style.display = 'block'; // Show audio player
+                audioPlayback.play(); // Auto-play the recorded audio
+
+                // Prepare to send the audio to the backend
+                const formData = new FormData();
+                formData.append('audioFile', audioBlob, 'recording.wav');
+
+                // Uncomment to send the recorded audio to the backend
+
+                fetch('/audio-to-text', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerText = data.text; // Show transcription result
+                });
+
+              };
+
+              document.getElementById('stopBtn').disabled = false;
+              document.getElementById('startBtn').disabled = true;
+            });
+  }
+
+  function stopRecording() {
+    mediaRecorder.stop();
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('startBtn').disabled = false;
+  }
+</script>
+</body>
+</html>
